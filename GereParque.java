@@ -1,6 +1,4 @@
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.*;
 
 public class GereParque {
     private static final int MAX_CAPACITY = 500;
@@ -8,13 +6,19 @@ public class GereParque {
     private static final double DISCOUNT_PERCENTAGE = 0.10;
 
     private ArrayList<Carro> listCarros;
+    private Map<String, Carro> allCarros;
 
     public GereParque() {
         listCarros = new ArrayList<>();
+        allCarros = new HashMap<>();
     }
 
-    public double calcularValorPagar(int minutos) {
-        return (minutos / 15) * RATE_PER_15_MINUTES;
+    public double calcularValorPagar(int minutos, Carro carro) {
+        double valorBase = (minutos / 15.0) * RATE_PER_15_MINUTES;
+        double valorComDesconto = valorBase * (1 - carro.getDiscountPercentage());
+        System.out.printf("Calculando valor a pagar para %s: Valor base: %.2f, Desconto: %.2f%%, Valor final: %.2f%n",
+                          carro.getNumAluno(), valorBase, carro.getDiscountPercentage() * 100, valorComDesconto);
+        return valorComDesconto;
     }
 
     public void insertCar(Carro newCar) {
@@ -22,8 +26,14 @@ public class GereParque {
             System.out.println("O Parque está cheio!");
         } else {
             listCarros.add(newCar);
-            System.out.printf("Aluno %s entrou no parque com o carro de matrícula %s%n", 
-                              newCar.getNumAluno(), newCar.getMatricula());
+            Carro existingCar = allCarros.get(newCar.getNumAluno());
+            if (existingCar != null) {
+                // Preserve the discount if the car already exists
+                newCar.setDiscountPercentage(existingCar.getDiscountPercentage());
+            }
+            allCarros.put(newCar.getNumAluno(), newCar);
+            System.out.printf("Aluno %s entrou no parque com o carro de matrícula %s. Desconto atual: %.2f%%%n", 
+                              newCar.getNumAluno(), newCar.getMatricula(), newCar.getDiscountPercentage() * 100);
         }
     }
 
@@ -31,29 +41,56 @@ public class GereParque {
         int index = listCarros.indexOf(car);
         if (index != -1) {
             Carro removedCar = listCarros.remove(index);
-            double valorPagar = calcularValorPagar(minutos);
+            double valorPagar = calcularValorPagar(minutos, removedCar);
             removedCar.adicionarPagamento(valorPagar);
+            ParkingDataHandler.saveParking(removedCar.getNumAluno(), removedCar.getMatricula(), minutos, valorPagar);
             System.out.printf("Aluno %s saiu do parque. Tempo estacionado: %d minutos. Valor a pagar: %.2f%n", 
                               removedCar.getNumAluno(), minutos, valorPagar);
+            
+            if (removedCar.getDiscountPercentage() > 0) {
+                System.out.printf("Desconto de %.0f%% aplicado.%n", removedCar.getDiscountPercentage() * 100);
+            }
         } else {
             System.out.println("Este carro não está no parque");
         }
     }
 
     public void aplicarDesconto() {
-        if (listCarros.isEmpty()) {
+        Map<String, Double> totalPaidByStudent = ParkingDataHandler.getTotalPaidByStudent();
+        
+        if (totalPaidByStudent.isEmpty()) {
             System.out.println("Nenhum aluno estacionou este mês");
             return;
         }
 
-        Carro alunoComMaiorPagamento = Collections.max(listCarros, Comparator.comparingDouble(Carro::getTotalPago));
-        double totalPago = alunoComMaiorPagamento.getTotalPago();
-        double desconto = totalPago * DISCOUNT_PERCENTAGE;
-        double novoTotal = totalPago - desconto;
+        String alunoComMaiorPagamento = Collections.max(totalPaidByStudent.entrySet(), Map.Entry.comparingByValue()).getKey();
+        double totalPago = totalPaidByStudent.get(alunoComMaiorPagamento);
 
-        alunoComMaiorPagamento.adicionarPagamento(-desconto);
+        // Reset discount for all students
+        for (Carro carro : allCarros.values()) {
+            carro.setDiscountPercentage(0.0);
+            System.out.printf("Resetando desconto para aluno %s%n", carro.getNumAluno());
+        }
 
-        System.out.printf("O aluno %s recebeu um desconto de 10%% (%.2f). Novo total: %.2f%n", 
-                          alunoComMaiorPagamento.getNumAluno(), desconto, novoTotal);
+        // Apply discount to the student with highest payment
+        Carro carroComDesconto = allCarros.get(alunoComMaiorPagamento);
+        if (carroComDesconto != null) {
+            carroComDesconto.setDiscountPercentage(DISCOUNT_PERCENTAGE);
+            System.out.printf("O aluno %s recebeu um desconto de 10%% para o próximo mês. Total pago este mês: %.2f%n", 
+                              alunoComMaiorPagamento, totalPago);
+        } else {
+            carroComDesconto = new Carro(alunoComMaiorPagamento, "");
+            carroComDesconto.setDiscountPercentage(DISCOUNT_PERCENTAGE);
+            allCarros.put(alunoComMaiorPagamento, carroComDesconto);
+            System.out.printf("Criado novo registro para aluno %s com desconto de 10%%%n", alunoComMaiorPagamento);
+        }
+    }
+
+    // Method to check current discounts (for debugging)
+    public void printCurrentDiscounts() {
+        System.out.println("Current discounts:");
+        for (Carro carro : allCarros.values()) {
+            System.out.printf("Aluno %s: %.2f%%%n", carro.getNumAluno(), carro.getDiscountPercentage() * 100);
+        }
     }
 }
