@@ -36,6 +36,19 @@ public class Carro {
         this.totalPago += valor;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Carro carro = (Carro) o;
+        return numAluno.equals(carro.numAluno) && matricula.equals(carro.matricula);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * numAluno.hashCode() + matricula.hashCode();
+    }
+
     // Método toString para exibir as informações do carro
     @Override
     public String toString() {

@@ -1,58 +1,59 @@
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 public class GereParque {
-    private ArrayList<Carro>listCarros;
+    private static final int MAX_CAPACITY = 500;
+    private static final double RATE_PER_15_MINUTES = 0.10;
+    private static final double DISCOUNT_PERCENTAGE = 0.10;
 
-    /**
-     * construtor da classe GereParque
-     */
-    public GereParque(){
-        listCarros = new ArrayList<Carro>();
+    private ArrayList<Carro> listCarros;
+
+    public GereParque() {
+        listCarros = new ArrayList<>();
     }
 
-    public double calcularValorPagar(int minutos){
-        return (minutos/15) * 0.10;
+    public double calcularValorPagar(int minutos) {
+        return (minutos / 15) * RATE_PER_15_MINUTES;
     }
 
-    public void insertCar (Carro newCar){
-        if (listCarros.size() >= 500){
+    public void insertCar(Carro newCar) {
+        if (listCarros.size() >= MAX_CAPACITY) {
             System.out.println("O Parque está cheio!");
-        }
-        else{
+        } else {
             listCarros.add(newCar);
-            System.out.println("Aluno" + newCar.getNumAluno() + "Entrou no parque");
+            System.out.printf("Aluno %s entrou no parque com o carro de matrícula %s%n", 
+                              newCar.getNumAluno(), newCar.getMatricula());
         }
     }
 
-    public void excludeCar(Carro newCar, int minutos){
-        if (listCarros.contains(newCar)){
+    public void excludeCar(Carro car, int minutos) {
+        int index = listCarros.indexOf(car);
+        if (index != -1) {
+            Carro removedCar = listCarros.remove(index);
             double valorPagar = calcularValorPagar(minutos);
-            newCar.adicionarPagamento(valorPagar);
-            System.out.println("Aluno" + newCar.getNumAluno() + "saiu do parque. Tempo estacionado" + minutos + "minutos. Valor a pagar:" + valorPagar);
-            listCarros.remove(newCar);
-
-        }
-        else{
-            System.out.println("Este aluno não está no parque");
+            removedCar.adicionarPagamento(valorPagar);
+            System.out.printf("Aluno %s saiu do parque. Tempo estacionado: %d minutos. Valor a pagar: %.2f%n", 
+                              removedCar.getNumAluno(), minutos, valorPagar);
+        } else {
+            System.out.println("Este carro não está no parque");
         }
     }
 
-    public void aplicarDesconto(){
-        if (listCarros.isEmpty()){
-            System.out.println("nenhum aluno estacionou este mês");
+    public void aplicarDesconto() {
+        if (listCarros.isEmpty()) {
+            System.out.println("Nenhum aluno estacionou este mês");
+            return;
         }
 
-        Carro alunoComMaiorPagamento = listCarros.get(0);
+        Carro alunoComMaiorPagamento = Collections.max(listCarros, Comparator.comparingDouble(Carro::getTotalPago));
+        double totalPago = alunoComMaiorPagamento.getTotalPago();
+        double desconto = totalPago * DISCOUNT_PERCENTAGE;
+        double novoTotal = totalPago - desconto;
 
-        for (Carro c: listCarros){
-            if (c.getTotalPago() > alunoComMaiorPagamento.getTotalPago()){
-                alunoComMaiorPagamento = c;
-            }
-        }
+        alunoComMaiorPagamento.adicionarPagamento(-desconto);
 
-        double desconto = alunoComMaiorPagamento.getTotalPago() * 0.90;
-        System.out.println("O aluno" + alunoComMaiorPagamento.getNumAluno() + "recebeu um desconto de 10%");
-
+        System.out.printf("O aluno %s recebeu um desconto de 10%% (%.2f). Novo total: %.2f%n", 
+                          alunoComMaiorPagamento.getNumAluno(), desconto, novoTotal);
     }
 }
-
